@@ -136,11 +136,47 @@ h1 {
 
 .panel {
   min-width: 0;
-  border: 1px solid #dce2eb;
+  --panel-accent: #1f7478;
+  --panel-surface: rgba(255, 255, 255, 0.94);
+  --panel-border: #dce2eb;
+  border: 1px solid var(--panel-border);
+  border-left: 6px solid var(--panel-accent);
   border-radius: 8px;
   padding: 18px;
-  background: rgba(255, 255, 255, 0.94);
+  background:
+    linear-gradient(180deg, var(--panel-surface), rgba(255, 255, 255, 0.96)),
+    #fff;
   box-shadow: 0 14px 42px rgba(23, 32, 51, 0.07);
+}
+
+.panel-salary {
+  --panel-accent: #2563eb;
+  --panel-surface: #eff6ff;
+  --panel-border: #bfdbfe;
+}
+
+.panel-ot {
+  --panel-accent: #059669;
+  --panel-surface: #ecfdf5;
+  --panel-border: #a7f3d0;
+}
+
+.panel-tax {
+  --panel-accent: #d97706;
+  --panel-surface: #fffbeb;
+  --panel-border: #fde68a;
+}
+
+.panel-net {
+  --panel-accent: #e11d48;
+  --panel-surface: #fff1f2;
+  --panel-border: #fecdd3;
+}
+
+.panel-history {
+  --panel-accent: #7c3aed;
+  --panel-surface: #f5f3ff;
+  --panel-border: #ddd6fe;
 }
 
 .panel-title {
@@ -162,7 +198,7 @@ h1 {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: #1f7478;
+  background: var(--panel-accent);
   color: #fff;
   font-size: 0.9rem;
   font-weight: 900;
@@ -201,7 +237,7 @@ select {
 
 input:focus,
 select:focus {
-  border-color: #1f7478;
+  border-color: var(--panel-accent, #1f7478);
   box-shadow: 0 0 0 3px rgba(31, 116, 120, 0.15);
 }
 
