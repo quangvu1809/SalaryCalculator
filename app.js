@@ -110,6 +110,29 @@ const normalizeMoneyInput = (element) => {
   element.setSelectionRange(nextCursor, nextCursor);
 };
 
+const isEditableNumberInput = (element) => {
+  if (!(element instanceof HTMLInputElement)) return false;
+  if (element.closest(".modal")) return false;
+  return element.classList.contains("money-input") || element.type === "number";
+};
+
+const clearDefaultZero = (element) => {
+  if (!isEditableNumberInput(element)) return;
+  if (element.value === "0") {
+    element.value = "";
+  }
+};
+
+const restoreEmptyNumber = (element) => {
+  if (!isEditableNumberInput(element)) return;
+  if (element.value.trim() !== "") return;
+  element.value = "0";
+  if (element.classList.contains("money-input")) {
+    normalizeMoneyInput(element);
+  }
+  renderCalculatedValues();
+};
+
 const session = {
   user: localStorage.getItem("salaryCalculator.currentUser") || "",
 };
@@ -619,6 +642,14 @@ document.addEventListener("input", (event) => {
     normalizeMoneyInput(element);
   }
   renderCalculatedValues();
+});
+
+document.addEventListener("focusin", (event) => {
+  clearDefaultZero(event.target);
+});
+
+document.addEventListener("focusout", (event) => {
+  restoreEmptyNumber(event.target);
 });
 
 document.addEventListener("change", (event) => {
