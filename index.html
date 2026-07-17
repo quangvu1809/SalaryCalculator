@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tính thu nhập thực nhận</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Bảng lương cá nhân</p>
+        <h1>Tính thu nhập thực nhận</h1>
+      </div>
+      <div class="account-actions">
+        <span id="accountBadge" class="account-badge">Chưa đăng nhập</span>
+        <button id="btnLogin" class="btn btn-primary" type="button">Đăng nhập</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="summary-strip" aria-label="Tổng quan">
+        <div>
+          <span>Lương trước thuế</span>
+          <strong id="preTaxSalary">0 đ</strong>
+        </div>
+        <div>
+          <span>Tổng tiền OT</span>
+          <strong id="totalOtAmount">0 đ</strong>
+        </div>
+        <div>
+          <span>Thuế phải nộp</span>
+          <strong id="taxDue">0 đ</strong>
+        </div>
+        <div class="highlight">
+          <span>Thực nhận</span>
+          <strong id="netIncome">0 đ</strong>
+        </div>
+      </section>
+
+      <div class="layout-grid">
+        <section class="panel">
+          <div class="panel-title">
+            <span class="step">1</span>
+            <h2>Thông tin lương</h2>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span>Lương cơ bản</span>
+              <input id="baseSalary" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+            <label>
+              <span>Lương Xjob</span>
+              <input id="xjobSalary" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+            <label>
+              <span>Lương MSC</span>
+              <input id="mscSalary" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+            <label>
+              <span>Khoản hỗ trợ</span>
+              <input id="allowance" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+          </div>
+          <div class="result-row">
+            <span>Tổng lương trước thuế</span>
+            <strong id="preTaxSalaryPanel">0 đ</strong>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span class="step">2</span>
+            <h2>Thông tin OT</h2>
+          </div>
+          <div class="ot-table" aria-label="Bảng OT">
+            <div class="ot-head">
+              <span>Giờ</span>
+              <span>Loại ngày</span>
+              <span>Ca</span>
+              <span>Hệ số</span>
+              <span>Tiền OT</span>
+              <span>Xóa</span>
+            </div>
+
+            <div id="otRowsContainer" class="ot-rows"></div>
+          </div>
+          <button id="addOtRowBtn" class="btn btn-secondary add-ot-btn" type="button">+ Thêm dòng OT</button>
+          <div class="result-row">
+            <span>Tổng tiền OT</span>
+            <strong id="totalOtAmountPanel">0 đ</strong>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span class="step">3</span>
+            <h2>Thuế lũy tiến</h2>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span>Giảm trừ bản thân</span>
+              <input id="personalDeduction" class="money-input" type="text" inputmode="numeric" value="15.500.000" />
+            </label>
+            <label>
+              <span>Số người phụ thuộc</span>
+              <input id="dependents" type="number" inputmode="numeric" min="0" step="1" value="0" />
+            </label>
+            <label>
+              <span>Trích nộp bảo hiểm</span>
+              <input id="insurance" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+          </div>
+          <div class="result-stack">
+            <div class="result-row">
+              <span>Giảm trừ gia cảnh</span>
+              <strong id="familyDeduction">0 đ</strong>
+            </div>
+            <div class="result-row">
+              <span>Tổng giảm trừ tính thuế</span>
+              <strong id="totalDeduction">0 đ</strong>
+            </div>
+            <div class="result-row">
+              <span>Thu nhập tính thuế</span>
+              <strong id="taxableIncome">0 đ</strong>
+            </div>
+            <div class="tax-bracket">
+              <span>Bậc thuế áp dụng</span>
+              <strong id="taxBracketLabel">Không phát sinh thuế</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <span class="step">4</span>
+            <h2>Thực nhận</h2>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span>Ứng UTOP</span>
+              <input id="utopAdvance" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+            <label>
+              <span>Công đoàn phí</span>
+              <input id="unionFee" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+            <label>
+              <span>Phạt đi muộn/về sớm</span>
+              <input id="latePenalty" class="money-input" type="text" inputmode="numeric" value="0" />
+            </label>
+          </div>
+          <div class="net-card">
+            <span>Thu nhập thực nhận tháng này</span>
+            <strong id="netIncomePanel">0 đ</strong>
+          </div>
+          <div class="control-row">
+            <button id="calculateBtn" class="btn btn-primary" type="button">Tính / Lưu</button>
+            <button id="resetBtn" class="btn btn-secondary" type="button">Nhập lại</button>
+          </div>
+        </section>
+
+        <section class="panel history-panel">
+          <div class="panel-title">
+            <span class="step">5</span>
+            <h2>Lịch sử tính</h2>
+          </div>
+          <div id="historyNotice" class="history-notice"></div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="modal-dialog">
+      <h3 id="loginTitle">Tài khoản</h3>
+      <div class="auth-tabs" role="tablist" aria-label="Chọn chế độ tài khoản">
+        <button id="loginModeBtn" class="auth-tab active" type="button">Đăng nhập</button>
+        <button id="registerModeBtn" class="auth-tab" type="button">Đăng ký</button>
+      </div>
+      <label id="displayNameField" class="hidden">
+        <span>Họ tên</span>
+        <input id="registerDisplayName" type="text" autocomplete="name" />
+      </label>
+      <label>
+        <span>Email hoặc tên đăng nhập</span>
+        <input id="loginEmail" type="text" autocomplete="username" />
+      </label>
+      <label>
+        <span>Mật khẩu</span>
+        <input id="loginPassword" type="password" autocomplete="current-password" />
+      </label>
+      <label id="confirmPasswordField" class="hidden">
+        <span>Nhập lại mật khẩu</span>
+        <input id="registerConfirmPassword" type="password" autocomplete="new-password" />
+      </label>
+      <p id="authStatus" class="modal-note">Tài khoản được lưu trong trình duyệt bằng localStorage để chạy tốt trên GitHub Pages.</p>
+      <div class="control-row">
+        <button id="loginSubmit" class="btn btn-primary" type="button">Đăng nhập</button>
+        <button id="loginCancel" class="btn btn-secondary" type="button">Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
