@@ -5,6 +5,12 @@ const MONEY_FORMATTER = new Intl.NumberFormat("vi-VN", {
 const DEPENDENT_DEDUCTION = 6200000;
 const PERSONAL_DEDUCTION_2026 = 15500000;
 
+const SUPABASE_URL = "https://pjjizawertphihdkmngp.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Nio0HyBxHPsZbN-CfGzatA_SFO4ykHy";
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+  : null;
+
 const taxBrackets = [
   { from: 0, to: 10000000, rate: 0.05, label: "Bậc 1 - 5%" },
   { from: 10000000, to: 30000000, rate: 0.1, label: "Bậc 2 - 10%" },
@@ -22,6 +28,7 @@ const otCoefficients = {
 const elements = {
   accountBadge: document.getElementById("accountBadge"),
   btnLogin: document.getElementById("btnLogin"),
+  btnLogout: document.getElementById("btnLogout"),
 
   baseSalary: document.getElementById("baseSalary"),
   otSalary: document.getElementById("otSalary"),
@@ -135,42 +142,50 @@ const restoreEmptyNumber = (element) => {
 };
 
 const session = {
-  user: localStorage.getItem("salaryCalculator.currentUser") || "",
+  userId: "",
+  user: "",
+  displayName: "",
 };
 
 let authMode = "login";
 let nextOtRowId = 1;
 let otRows = [];
+let historyItems = [];
+let isSavingHistory = false;
 
-const historyKey = () => `salaryCalculator.history.${session.user}`;
+const normalizeUsername = (username) => String(username || "").trim().toLowerCase();
 
-const getHistory = () => {
-  if (!session.user) return [];
+const toAuthEmail = (identifier) => {
+  const normalized = normalizeUsername(identifier);
+  if (!normalized) return "";
+  return normalized.includes("@") ? normalized : `${normalized}@salarycalculator.local`;
+};
+
+const getLegacyLocalHistory = (username) => {
+  if (!username) return [];
   try {
-    return JSON.parse(localStorage.getItem(historyKey()) || "[]");
+    return JSON.parse(localStorage.getItem(`salaryCalculator.history.${username}`) || "[]");
   } catch {
     return [];
   }
 };
 
-const saveHistory = (history) => {
-  if (!session.user) return;
-  localStorage.setItem(historyKey(), JSON.stringify(history));
+const clearLegacyLocalHistory = (username) => {
+  if (!username) return;
+  localStorage.removeItem(`salaryCalculator.history.${username}`);
 };
 
-const getStoredUsers = () => {
-  try {
-    return JSON.parse(localStorage.getItem("salaryCalculator.users") || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const saveStoredUsers = (users) => {
-  localStorage.setItem("salaryCalculator.users", JSON.stringify(users));
-};
-
-const normalizeUsername = (username) => username.trim().toLowerCase();
+const mapDbRowToHistoryItem = (row) => ({
+  id: row.id,
+  createdAt: new Date(row.created_at).toLocaleString("vi-VN"),
+  preTaxSalary: Number(row.pre_tax_salary) || 0,
+  otTotal: Number(row.ot_total) || 0,
+  taxableIncome: Number(row.taxable_income) || 0,
+  taxDue: Number(row.tax_due) || 0,
+  insurance: Number(row.insurance) || 0,
+  netIncome: Number(row.net_income) || 0,
+  inputs: row.inputs || {},
+});
 
 const calcPreTaxSalary = () =>
   num(elements.baseSalary) + num(elements.xjobSalary) + num(elements.mscSalary) + num(elements.allowance);
@@ -435,36 +450,46 @@ const applyHistoryEntry = (entry) => {
 };
 
 const renderAccount = () => {
-  if (session.user) {
-    elements.accountBadge.textContent = session.user;
+  if (session.userId) {
+    elements.accountBadge.textContent = session.displayName || session.user;
     elements.btnLogin.textContent = "Đổi tài khoản";
+    if (elements.btnLogout) {
+      elements.btnLogout.classList.remove("hidden");
+      elements.btnLogout.hidden = false;
+    }
   } else {
     elements.accountBadge.textContent = "Chưa đăng nhập";
     elements.btnLogin.textContent = "Đăng nhập";
+    if (elements.btnLogout) {
+      elements.btnLogout.classList.add("hidden");
+      elements.btnLogout.hidden = true;
+    }
   }
 };
 
-const renderHistory = () => {
-  if (!session.user) {
-    elements.historyNotice.textContent = "Đăng nhập để lưu và xem lịch sử từng lần tính.";
+const renderHistory = (loadingMessage = "") => {
+  if (!session.userId) {
+    elements.historyNotice.textContent = "Đăng nhập để lưu và xem lịch sử tính lương trên mọi thiết bị.";
     elements.historyList.innerHTML = "";
     return;
   }
 
-  const history = getHistory();
-  elements.historyNotice.textContent = history.length
-    ? `Đang hiển thị ${history.length} bản ghi của ${session.user}.`
+  if (loadingMessage) {
+    elements.historyNotice.textContent = loadingMessage;
+    return;
+  }
+
+  const labelName = session.displayName || session.user;
+  elements.historyNotice.textContent = historyItems.length
+    ? `Đang hiển thị ${historyItems.length} bản ghi của ${labelName} (đồng bộ đám mây).`
     : "Chưa có lịch sử. Bấm Tính / Lưu để tạo bản ghi đầu tiên.";
 
-  elements.historyList.innerHTML = history
-    .slice()
-    .reverse()
-    .map((item, reversedIndex) => {
-      const index = history.length - 1 - reversedIndex;
+  elements.historyList.innerHTML = historyItems
+    .map((item, index) => {
       const inputs = getEntryInputs(item);
       const otLineCount = inputs.otRows?.filter((row) => Number(row.hours) > 0).length || 0;
       return `
-        <article class="history-item" data-index="${index}" data-action="reuse">
+        <article class="history-item" data-index="${index}" data-id="${item.id}" data-action="reuse">
           <header>
             <div>
               <h3>${item.createdAt}</h3>
@@ -492,27 +517,93 @@ const renderHistory = () => {
     .join("");
 };
 
-const saveCurrentCalculation = () => {
-  if (!session.user) {
+const migrateLegacyHistoryIfNeeded = async (username) => {
+  if (!supabaseClient || !session.userId || !username) return;
+  const legacyItems = getLegacyLocalHistory(username);
+  if (!legacyItems.length) return;
+
+  const rowsToInsert = legacyItems.map((item) => ({
+    user_id: session.userId,
+    pre_tax_salary: Math.round(Number(item.preTaxSalary) || 0),
+    ot_total: Math.round(Number(item.otTotal) || 0),
+    taxable_income: Math.round(Number(item.taxableIncome) || 0),
+    tax_due: Math.round(Number(item.taxDue) || 0),
+    insurance: Math.round(Number(item.insurance) || 0),
+    net_income: Math.round(Number(item.netIncome) || 0),
+    inputs: getEntryInputs(item),
+  }));
+
+  const { error } = await supabaseClient.from("salary_histories").insert(rowsToInsert);
+  if (!error) {
+    clearLegacyLocalHistory(username);
+  }
+};
+
+const fetchCloudHistory = async () => {
+  if (!supabaseClient || !session.userId) {
+    historyItems = [];
+    renderHistory();
+    return;
+  }
+
+  renderHistory("Đang tải lịch sử từ đám mây...");
+  const { data, error } = await supabaseClient
+    .from("salary_histories")
+    .select("id, pre_tax_salary, ot_total, taxable_income, tax_due, insurance, net_income, inputs, created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    elements.historyNotice.textContent = `Không thể tải lịch sử: ${error.message}`;
+    return;
+  }
+
+  historyItems = (data || []).map(mapDbRowToHistoryItem);
+  renderHistory();
+};
+
+const saveCurrentCalculation = async () => {
+  if (!session.userId) {
     openLogin();
     elements.historyNotice.textContent = "Vui lòng đăng nhập trước khi lưu lịch sử.";
     return;
   }
 
+  if (!supabaseClient || isSavingHistory) return;
+
   const data = renderCalculatedValues();
-  const history = getHistory();
-  history.push({
-    createdAt: new Date().toLocaleString("vi-VN"),
-    preTaxSalary: Math.round(data.preTaxSalary),
-    otTotal: Math.round(data.ot.total),
-    taxableIncome: Math.round(data.taxableIncome),
-    taxDue: Math.round(data.taxDue),
-    insurance: Math.round(data.insurance),
-    netIncome: Math.round(data.netIncome),
-    inputs: collectInputs(data),
-  });
-  saveHistory(history);
-  renderHistory();
+  isSavingHistory = true;
+  elements.calculateBtn.disabled = true;
+  elements.calculateBtn.textContent = "Đang lưu...";
+
+  try {
+    const payload = {
+      user_id: session.userId,
+      pre_tax_salary: Math.round(data.preTaxSalary),
+      ot_total: Math.round(data.ot.total),
+      taxable_income: Math.round(data.taxableIncome),
+      tax_due: Math.round(data.taxDue),
+      insurance: Math.round(data.insurance),
+      net_income: Math.round(data.netIncome),
+      inputs: collectInputs(data),
+    };
+
+    const { data: insertedRow, error } = await supabaseClient
+      .from("salary_histories")
+      .insert(payload)
+      .select("id, pre_tax_salary, ot_total, taxable_income, tax_due, insurance, net_income, inputs, created_at")
+      .single();
+
+    if (error) throw error;
+
+    historyItems.unshift(mapDbRowToHistoryItem(insertedRow));
+    renderHistory();
+  } catch (error) {
+    elements.historyNotice.textContent = `Lỗi khi lưu lịch sử: ${error.message}`;
+  } finally {
+    isSavingHistory = false;
+    elements.calculateBtn.disabled = false;
+    elements.calculateBtn.textContent = "Tính / Lưu";
+  }
 };
 
 const resetForm = () => {
@@ -540,7 +631,7 @@ const openLogin = () => {
   elements.loginPassword.value = "";
   elements.registerDisplayName.value = "";
   elements.registerConfirmPassword.value = "";
-  elements.authStatus.textContent = "Tài khoản được lưu trong trình duyệt bằng localStorage.";
+  elements.authStatus.textContent = "Tài khoản và lịch sử được lưu trữ trên Supabase để xem trên mọi thiết bị.";
   elements.loginModal.classList.remove("hidden");
   elements.loginEmail.focus();
 };
@@ -555,42 +646,60 @@ const setAuthMode = (mode) => {
   elements.loginModeBtn.classList.toggle("active", !isRegister);
   elements.registerModeBtn.classList.toggle("active", isRegister);
   elements.displayNameField.classList.toggle("hidden", !isRegister);
+  elements.displayNameField.hidden = !isRegister;
   elements.confirmPasswordField.classList.toggle("hidden", !isRegister);
+  elements.confirmPasswordField.hidden = !isRegister;
   elements.loginSubmit.textContent = isRegister ? "Đăng ký" : "Đăng nhập";
   elements.loginPassword.autocomplete = isRegister ? "new-password" : "current-password";
   elements.authStatus.innerHTML = isRegister
-    ? "Tài khoản mới sẽ được lưu trong localStorage của trình duyệt này."
-    : "Đăng nhập bằng tài khoản đã đăng ký trên trình duyệt này.";
+    ? "Tạo tài khoản mới để đồng bộ lịch sử tính lương trên mọi thiết bị."
+    : "Đăng nhập để xem và lưu lịch sử tính lương trên đám mây.";
 };
 
-const registerLocalUser = (username, password, displayName) => {
-  const users = getStoredUsers();
-  const normalizedUsername = normalizeUsername(username);
-  if (users.some((item) => item.username === normalizedUsername)) {
-    throw new Error("Tài khoản này đã tồn tại trên trình duyệt này.");
+const syncSessionFromAuthUser = async (authUser) => {
+  if (!authUser) {
+    session.userId = "";
+    session.user = "";
+    session.displayName = "";
+    historyItems = [];
+    renderAccount();
+    renderHistory();
+    return;
   }
 
-  const user = {
-    username: normalizedUsername,
-    displayName: displayName || normalizedUsername,
-    password,
-    createdAt: new Date().toISOString(),
-  };
-  users.push(user);
-  saveStoredUsers(users);
-  return user;
-};
+  const fallbackUsername =
+    authUser.user_metadata?.username ||
+    (authUser.email ? authUser.email.replace(/@salarycalculator\.local$/i, "") : authUser.id);
+  const fallbackDisplayName = authUser.user_metadata?.display_name || fallbackUsername;
 
-const loginLocalUser = (username, password) => {
-  const normalizedUsername = normalizeUsername(username);
-  const user = getStoredUsers().find((item) => item.username === normalizedUsername);
-  if (!user || user.password !== password) {
-    throw new Error("Tài khoản hoặc mật khẩu không đúng.");
+  session.userId = authUser.id;
+  session.user = fallbackUsername;
+  session.displayName = fallbackDisplayName;
+
+  if (supabaseClient) {
+    const { data: profile } = await supabaseClient
+      .from("profiles")
+      .select("username, display_name")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (profile) {
+      session.user = profile.username || session.user;
+      session.displayName = profile.display_name || session.displayName;
+    }
   }
-  return user;
+
+  renderAccount();
+  await migrateLegacyHistoryIfNeeded(session.user);
+  await fetchCloudHistory();
 };
 
-const submitAuth = () => {
+const submitAuth = async () => {
+  if (!supabaseClient) {
+    elements.authStatus.textContent = "Không thể kết nối tới dịch vụ Supabase.";
+    return;
+  }
+
   const user = normalizeUsername(elements.loginEmail.value);
   const password = elements.loginPassword.value.trim();
 
@@ -611,25 +720,69 @@ const submitAuth = () => {
     }
   }
 
-  try {
-    const authUser = authMode === "register"
-      ? registerLocalUser(user, password, elements.registerDisplayName.value.trim())
-      : loginLocalUser(user, password);
+  const email = toAuthEmail(user);
+  const displayName = elements.registerDisplayName.value.trim() || user;
 
-    session.user = authUser.username;
-    localStorage.setItem("salaryCalculator.currentUser", authUser.username);
+  elements.loginSubmit.disabled = true;
+  elements.authStatus.textContent = authMode === "register" ? "Đang tạo tài khoản..." : "Đang đăng nhập...";
+
+  try {
+    if (authMode === "register") {
+      if (session.userId) {
+        await supabaseClient.auth.signOut();
+      }
+      const { error: registerError } = await supabaseClient.rpc("register_account", {
+        p_identifier: user,
+        p_password: password,
+        p_display_name: displayName,
+      });
+      if (registerError) {
+        throw new Error(registerError.message);
+      }
+    }
+
+    const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      throw new Error(
+        signInError.message.includes("Invalid login credentials")
+          ? "Tài khoản hoặc mật khẩu không đúng."
+          : signInError.message
+      );
+    }
+
     closeLogin();
-    renderAccount();
-    renderHistory();
+    await syncSessionFromAuthUser(signInData.user);
   } catch (error) {
-    elements.authStatus.textContent = error.message;
+    elements.authStatus.textContent = error.message || "Có lỗi xảy ra khi xác thực.";
+  } finally {
+    elements.loginSubmit.disabled = false;
   }
 };
 
-const deleteHistoryItem = (index) => {
-  const history = getHistory();
-  history.splice(index, 1);
-  saveHistory(history);
+const signOutUser = async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  await syncSessionFromAuthUser(null);
+};
+
+const deleteHistoryItem = async (id, index) => {
+  if (!supabaseClient || !session.userId) return;
+
+  const { error } = await supabaseClient
+    .from("salary_histories")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    elements.historyNotice.textContent = `Không thể xóa bản ghi: ${error.message}`;
+    return;
+  }
+
+  historyItems.splice(index, 1);
   renderHistory();
 };
 
@@ -677,6 +830,7 @@ elements.calculateBtn.addEventListener("click", saveCurrentCalculation);
 elements.resetBtn.addEventListener("click", resetForm);
 elements.addOtRowBtn.addEventListener("click", addOtRow);
 elements.btnLogin.addEventListener("click", openLogin);
+elements.btnLogout?.addEventListener("click", signOutUser);
 elements.loginCancel.addEventListener("click", closeLogin);
 elements.loginModeBtn.addEventListener("click", () => setAuthMode("login"));
 elements.registerModeBtn.addEventListener("click", () => setAuthMode("register"));
@@ -698,14 +852,16 @@ elements.historyList.addEventListener("click", (event) => {
   const item = event.target.closest(".history-item");
   if (!item) return;
 
+  const index = Number(item.dataset.index);
   const actionButton = event.target.closest("button");
   if (actionButton?.dataset.action === "delete") {
-    deleteHistoryItem(Number(item.dataset.index));
+    deleteHistoryItem(Number(item.dataset.id), index);
     return;
   }
 
-  const history = getHistory();
-  applyHistoryEntry(history[Number(item.dataset.index)]);
+  if (historyItems[index]) {
+    applyHistoryEntry(historyItems[index]);
+  }
 });
 
 elements.otRowsContainer.addEventListener("click", (event) => {
@@ -715,9 +871,16 @@ elements.otRowsContainer.addEventListener("click", (event) => {
   deleteOtRow(Number(row.dataset.otRow));
 });
 
+const initAuthSession = async () => {
+  if (!supabaseClient) return;
+  const { data } = await supabaseClient.auth.getSession();
+  await syncSessionFromAuthUser(data?.session?.user || null);
+};
+
 renderAccount();
 otRows = [createOtRow()];
 nextOtRowId += 1;
 renderOtRows();
 renderCalculatedValues();
 renderHistory();
+initAuthSession();

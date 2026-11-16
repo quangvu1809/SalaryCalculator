@@ -16,6 +16,7 @@
       <div class="account-actions">
         <span id="accountBadge" class="account-badge">Chưa đăng nhập</span>
         <button id="btnLogin" class="btn btn-primary" type="button">Đăng nhập</button>
+        <button id="btnLogout" class="btn btn-secondary hidden" type="button" hidden>Đăng xuất</button>
       </div>
     </header>
 
@@ -184,7 +185,7 @@
         <button id="loginModeBtn" class="auth-tab active" type="button">Đăng nhập</button>
         <button id="registerModeBtn" class="auth-tab" type="button">Đăng ký</button>
       </div>
-      <label id="displayNameField" class="hidden">
+      <label id="displayNameField" class="hidden" hidden>
         <span>Họ tên</span>
         <input id="registerDisplayName" type="text" autocomplete="name" />
       </label>
@@ -196,11 +197,11 @@
         <span>Mật khẩu</span>
         <input id="loginPassword" type="password" autocomplete="current-password" />
       </label>
-      <label id="confirmPasswordField" class="hidden">
+      <label id="confirmPasswordField" class="hidden" hidden>
         <span>Nhập lại mật khẩu</span>
         <input id="registerConfirmPassword" type="password" autocomplete="new-password" />
       </label>
-      <p id="authStatus" class="modal-note">Tài khoản được lưu trong trình duyệt bằng localStorage để chạy tốt trên GitHub Pages.</p>
+      <p id="authStatus" class="modal-note">Tài khoản và lịch sử tính lương được đồng bộ qua Supabase trên mọi thiết bị.</p>
       <div class="control-row">
         <button id="loginSubmit" class="btn btn-primary" type="button">Đăng nhập</button>
         <button id="loginCancel" class="btn btn-secondary" type="button">Hủy</button>
@@ -208,6 +209,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

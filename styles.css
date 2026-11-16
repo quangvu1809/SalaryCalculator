@@ -522,8 +522,10 @@ select:focus {
   background: rgba(16, 24, 39, 0.5);
 }
 
+[hidden],
+.hidden,
 .modal.hidden {
-  display: none;
+  display: none !important;
 }
 
 .modal-dialog {
@@ -565,7 +567,7 @@ select:focus {
   box-shadow: 0 1px 4px rgba(16, 24, 39, 0.08);
 }
 
-.modal-dialog label + label {
+.modal-dialog label:not(.hidden) + label:not(.hidden) {
   margin-top: 12px;
 }
 
