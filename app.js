@@ -24,6 +24,7 @@ const elements = {
   btnLogin: document.getElementById("btnLogin"),
 
   baseSalary: document.getElementById("baseSalary"),
+  otSalary: document.getElementById("otSalary"),
   xjobSalary: document.getElementById("xjobSalary"),
   mscSalary: document.getElementById("mscSalary"),
   allowance: document.getElementById("allowance"),
@@ -230,8 +231,8 @@ const renderOtRows = () => {
 };
 
 const calcOtLine = (rowElement) => {
-  const baseSalary = num(elements.baseSalary);
-  const hourlyBase = baseSalary / 22 / 8;
+  const otSalary = num(elements.otSalary);
+  const hourlyBase = otSalary / 22 / 8;
   const hourInput = rowElement.querySelector("[data-ot-field='hours']");
   const dayTypeInput = rowElement.querySelector("[data-ot-field='dayType']");
   const shiftInput = rowElement.querySelector("[data-ot-field='shift']");
@@ -345,6 +346,7 @@ const renderCalculatedValues = () => {
 const collectInputs = (data) => ({
   salary: {
     baseSalary: num(elements.baseSalary),
+    otSalary: num(elements.otSalary),
     xjobSalary: num(elements.xjobSalary),
     mscSalary: num(elements.mscSalary),
     allowance: num(elements.allowance),
@@ -367,11 +369,20 @@ const collectInputs = (data) => ({
 });
 
 const getEntryInputs = (entry) => {
-  if (entry.inputs?.salary) return entry.inputs;
+  if (entry.inputs?.salary) {
+    return {
+      ...entry.inputs,
+      salary: {
+        ...entry.inputs.salary,
+        otSalary: entry.inputs.salary.otSalary ?? entry.inputs.salary.baseSalary ?? 0,
+      },
+    };
+  }
 
   return {
     salary: {
       baseSalary: entry.inputs?.baseSalary || 0,
+      otSalary: entry.inputs?.otSalary ?? entry.inputs?.baseSalary ?? 0,
       xjobSalary: entry.inputs?.xjobSalary || 0,
       mscSalary: entry.inputs?.mscSalary || 0,
       allowance: entry.inputs?.allowance || 0,
@@ -394,6 +405,7 @@ const applyHistoryEntry = (entry) => {
   const inputs = getEntryInputs(entry);
 
   setMoneyInputValue(elements.baseSalary, inputs.salary.baseSalary);
+  setMoneyInputValue(elements.otSalary, inputs.salary.otSalary);
   setMoneyInputValue(elements.xjobSalary, inputs.salary.xjobSalary);
   setMoneyInputValue(elements.mscSalary, inputs.salary.mscSalary);
   setMoneyInputValue(elements.allowance, inputs.salary.allowance);
@@ -469,6 +481,7 @@ const renderHistory = () => {
             <div><dt>Thuế</dt><dd>${money(item.taxDue)}</dd></div>
             <div><dt>BHXH</dt><dd>${money(item.insurance)}</dd></div>
             <div><dt>Lương cơ bản</dt><dd>${money(inputs.salary.baseSalary)}</dd></div>
+            <div><dt>Lương tính OT</dt><dd>${money(inputs.salary.otSalary)}</dd></div>
             <div><dt>Xjob + MSC</dt><dd>${money(inputs.salary.xjobSalary + inputs.salary.mscSalary)}</dd></div>
             <div><dt>Phụ thuộc</dt><dd>${inputs.tax.dependents || 0}</dd></div>
             <div><dt>Dòng OT</dt><dd>${otLineCount || inputs.otRows.length}</dd></div>
@@ -504,6 +517,7 @@ const saveCurrentCalculation = () => {
 
 const resetForm = () => {
   setMoneyInputValue(elements.baseSalary, 0);
+  setMoneyInputValue(elements.otSalary, 0);
   setMoneyInputValue(elements.xjobSalary, 0);
   setMoneyInputValue(elements.mscSalary, 0);
   setMoneyInputValue(elements.allowance, 0);
